@@ -51,12 +51,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_GITHUB_USERNAME/mui-bueno-cli.git"
+    "url": "git+https://github.com/maceoCK/mui-bueno-cli.git"
   },
-  "author": "Your Name <your.email@example.com>",
+  "author": "Maceo Cardinale Kwik",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/mui-bueno-cli/issues"
+    "url": "https://github.com/maceoCK/mui-bueno-cli/issues"
   },
-  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/mui-bueno-cli#readme"
+  "homepage": "https://github.com/maceoCK/mui-bueno-cli#readme"
 }
