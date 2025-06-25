@@ -105,10 +105,10 @@ Ensure you have SSH access to the repository:
 
 1. **Test SSH connection:**
    ```bash
-   ssh -T git@gitlab.com
+   ssh -T git@bitbucket.org              
    ```
 
-2. **Add SSH key to your GitLab account** if needed
+2. **Add SSH key to your BitBucket account** if needed
 
 3. **Specify custom SSH key** during init if required
 
