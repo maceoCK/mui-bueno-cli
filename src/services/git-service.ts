@@ -404,8 +404,37 @@ export class GitService {
       await fs.copy(sharedFilePath, targetPath);
       
       console.log(`      📄 Downloaded shared file: ${simplifiedPath}`);
+      
+      // After downloading a shared file, check if it has its own shared dependencies (like @types)
+      await this.downloadSharedFileOwnDependencies(sharedFilePath, srcPath, targetDir);
     } catch (error) {
       console.warn(`Warning: Could not download shared file ${sharedFilePath}: ${error}`);
+    }
+  }
+
+  private async downloadSharedFileOwnDependencies(sharedFilePath: string, srcPath: string, targetDir: string): Promise<void> {
+    try {
+      const content = await fs.readFile(sharedFilePath, 'utf-8');
+      const localImports = this.extractLocalImports(content);
+      
+      for (const importPath of localImports) {
+        // Check for @types imports specifically
+        if (importPath.includes('@types') || importPath.endsWith('@types')) {
+          const typesDir = path.join(srcPath, '@types');
+          if (await fs.pathExists(typesDir)) {
+            const targetTypesDir = path.join(targetDir, 'shared', '@types');
+            if (!await fs.pathExists(targetTypesDir)) {
+              await fs.ensureDir(path.dirname(targetTypesDir));
+              await fs.copy(typesDir, targetTypesDir);
+              console.log(`      📄 Downloaded shared file: @types`);
+            }
+          }
+        }
+        
+        // Could add more shared file dependency patterns here in the future
+      }
+    } catch (error) {
+      // Ignore errors in analyzing shared file dependencies
     }
   }
 
@@ -487,6 +516,13 @@ export class GitService {
         const sharedTypesDir = path.join(targetDir, 'shared', '@types');
         const relativeToTypes = path.relative(currentFileDir, sharedTypesDir);
         return relativeToTypes.replace(/\\/g, '/');
+      }
+      
+      // Handle common shared file imports by pattern
+      if (originalImportPath.includes('common/Utils') || originalImportPath.endsWith('/Utils')) {
+        const sharedUtilsDir = path.join(targetDir, 'shared', 'Utils');
+        const relativeToUtils = path.relative(currentFileDir, sharedUtilsDir);
+        return relativeToUtils.replace(/\\/g, '/');
       }
       
       // For shared files, point to the shared directory
