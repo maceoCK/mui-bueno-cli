@@ -150,13 +150,14 @@ export class GitService {
       return [];
     }
 
+    // Get git info once and reuse for all components
+    const branches = await this.getAvailableBranches();
+    const tags = await this.getAvailableTags();
+
     const componentInfos: ComponentInfo[] = [];
     const components = await this.findAllComponents(componentsPath);
 
     for (const component of components) {
-      const branches = await this.getComponentBranches(component.name);
-      const tags = await this.getComponentTags(component.name);
-      
       componentInfos.push({
         name: component.name,
         path: component.path,
