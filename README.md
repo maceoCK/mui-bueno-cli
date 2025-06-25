@@ -105,10 +105,10 @@ Ensure you have SSH access to the repository:
 
 1. **Test SSH connection:**
    ```bash
-   ssh -T git@github.com
+   ssh -T git@gitlab.com
    ```
 
-2. **Add SSH key to your GitHub account** if needed
+2. **Add SSH key to your GitLab account** if needed
 
 3. **Specify custom SSH key** during init if required
 
