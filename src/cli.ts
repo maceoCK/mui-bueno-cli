@@ -356,7 +356,7 @@ async function setupConfiguration(configManager: ConfigManager) {
       type: 'input',
       name: 'repositoryUrl',
       message: 'Git repository URL:',
-      default: 'git@github.com:owner/mui-bueno-v2.git',
+      default: 'git@bitbucket.org:obp-dashboard/mui-bueno-v2.git',
       validate: (input) => {
         if (!input.trim()) return 'Repository URL is required';
         if (!input.includes('git@') && !input.includes('https://')) {

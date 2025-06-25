@@ -53,7 +53,7 @@ export class ConfigManager {
   private getDefaultConfig(): CliConfig {
     return {
       git: {
-        repositoryUrl: 'git@github.com:owner/mui-bueno-v2.git',
+        repositoryUrl: 'git@bitbucket.org:obp-dashboard/mui-bueno-v2.git',
         branch: 'main'
       },
       defaultDownloadPath: './components',
