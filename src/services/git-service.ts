@@ -25,10 +25,10 @@ export class GitService {
       });
       
       // GitHub SSH test returns specific messages
-      return stderr.includes('successfully authenticated') || stdout.includes('successfully authenticated');
+      return stderr.includes('authenticated via ssh key.') || stdout.includes('authenticated via ssh key.');
     } catch (error: any) {
       // GitHub SSH test typically "fails" with exit code 1 but gives success message
-      if (error.stderr && error.stderr.includes('successfully authenticated')) {
+      if (error.stderr && error.stderr.includes('authenticated via ssh key.')) {
         return true;
       }
       return false;
