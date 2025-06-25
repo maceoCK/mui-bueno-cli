@@ -191,12 +191,14 @@ export async function downloadCommand(componentName?: string, options: DownloadO
       console.log(chalk.dim(`   Main component location: ${extractedPath}`));
 
       // Post-download processing
-      if (!options.includeTests) {
-        await removeTestFiles(extractedPath);
+      // Tests are included by default, only remove if explicitly excluded
+      if (options.tests === false) {
+        await removeTestFiles(outputDir);
       }
 
+      // Stories are excluded by default, only remove if not explicitly included
       if (!options.includeStories) {
-        await removeStoryFiles(extractedPath);
+        await removeStoryFiles(outputDir);
       }
 
       // Show component info
@@ -209,7 +211,84 @@ export async function downloadCommand(componentName?: string, options: DownloadO
 
     } catch (error) {
       downloadSpinner.fail(`Failed to download ${targetComponent}`);
-      console.error(chalk.red(`Error: ${error}`));
+      
+      // Check if this is a "component not found" error with suggestions
+      const errorMessage = String(error);
+      if (errorMessage.includes('Component "') && errorMessage.includes('Did you mean one of these?')) {
+        // Extract the component name and suggestions
+        const componentMatch = errorMessage.match(/Component "([^"]+)" not found/);
+        const suggestionsMatch = errorMessage.match(/Did you mean one of these\?\n  (.+)/);
+        
+        if (componentMatch && suggestionsMatch) {
+          const searchedComponent = componentMatch[1];
+          const suggestions = suggestionsMatch[1].split('\n  ');
+          
+          console.error(chalk.red(`Component "${searchedComponent}" not found.`));
+          
+          if (suggestions.length === 1) {
+            // Single suggestion - simple yes/no prompt
+            const suggestion = suggestions[0];
+            console.log(chalk.yellow(`\nDid you mean: ${chalk.bold(suggestion)}?`));
+            
+            const { useSuggestion } = await inquirer.prompt([
+              {
+                type: 'confirm',
+                name: 'useSuggestion',
+                message: `Download "${suggestion}" instead?`,
+                default: true
+              }
+            ]);
+            
+            if (useSuggestion) {
+              console.log(chalk.blue(`\n📦 Downloading ${suggestion}${targetVersion ? `@${targetVersion}` : ''} and dependencies...\n`));
+              
+              try {
+                const extractedPath = await gitService.downloadComponent(
+                  suggestion, 
+                  targetVersion, 
+                  outputDir
+                );
+
+                console.log(chalk.green(`\n✅ ${suggestion}${targetVersion ? `@${targetVersion}` : ''} and all dependencies downloaded successfully!`));
+                console.log(chalk.dim(`   Main component location: ${extractedPath}`));
+
+                // Post-download processing
+                if (options.tests === false) {
+                  await removeTestFiles(outputDir);
+                }
+
+                if (!options.includeStories) {
+                  await removeStoryFiles(outputDir);
+                }
+
+                // Show component info
+                await showComponentInfo(extractedPath, targetVersion);
+
+                // Install dependencies if requested
+                if (options.installDeps) {
+                  await installComponentDependencies(extractedPath, options.packageManager || 'pnpm');
+                }
+                
+                return; // Success, exit the function
+              } catch (secondError) {
+                console.error(chalk.red(`Failed to download ${suggestion}: ${secondError}`));
+              }
+            } else {
+              console.log(chalk.yellow('Download cancelled.'));
+            }
+          } else {
+            // Multiple suggestions - show list as before
+            console.log(chalk.yellow(`\nDid you mean one of these?`));
+            suggestions.forEach((suggestion, index) => {
+              console.log(`  ${chalk.dim(`${index + 1}.`)} ${suggestion}`);
+            });
+          }
+        } else {
+          console.error(chalk.red(`Error: ${error}`));
+        }
+      } else {
+        console.error(chalk.red(`Error: ${error}`));
+      }
     }
 
   } catch (error) {
@@ -221,12 +300,9 @@ export async function downloadCommand(componentName?: string, options: DownloadO
 
 async function removeTestFiles(componentPath: string): Promise<void> {
   try {
-    const files = await fs.readdir(componentPath, { withFileTypes: true });
-    for (const file of files) {
-      if (file.isFile() && (file.name.includes('.test.') || file.name.includes('.spec.'))) {
-        await fs.remove(path.join(componentPath, file.name));
-      }
-    }
+    await removeFilesRecursively(componentPath, (fileName) => 
+      fileName.includes('.test.') || fileName.includes('.spec.')
+    );
   } catch (error) {
     console.warn(chalk.yellow(`Warning: Could not remove test files: ${error}`));
   }
@@ -234,14 +310,26 @@ async function removeTestFiles(componentPath: string): Promise<void> {
 
 async function removeStoryFiles(componentPath: string): Promise<void> {
   try {
-    const files = await fs.readdir(componentPath, { withFileTypes: true });
-    for (const file of files) {
-      if (file.isFile() && file.name.includes('.stories.')) {
-        await fs.remove(path.join(componentPath, file.name));
-      }
-    }
+    await removeFilesRecursively(componentPath, (fileName) => 
+      fileName.includes('.stories.')
+    );
   } catch (error) {
     console.warn(chalk.yellow(`Warning: Could not remove story files: ${error}`));
+  }
+}
+
+async function removeFilesRecursively(dirPath: string, shouldRemove: (fileName: string) => boolean): Promise<void> {
+  const items = await fs.readdir(dirPath, { withFileTypes: true });
+  
+  for (const item of items) {
+    const itemPath = path.join(dirPath, item.name);
+    
+    if (item.isFile() && shouldRemove(item.name)) {
+      await fs.remove(itemPath);
+    } else if (item.isDirectory()) {
+      // Recursively process subdirectories
+      await removeFilesRecursively(itemPath, shouldRemove);
+    }
   }
 }
 

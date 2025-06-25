@@ -64,7 +64,7 @@ export interface DownloadOptions {
   commit?: string;
   outputDir?: string;
   force?: boolean;
-  includeTests?: boolean;
+  tests?: boolean;
   includeStories?: boolean;
   installDeps?: boolean;
   packageManager?: string;

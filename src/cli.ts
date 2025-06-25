@@ -25,8 +25,8 @@ program
   .option('-c, --commit <commit>', 'Specific commit to download')
   .option('-o, --output-dir <dir>', 'Output directory for downloaded components')
   .option('-f, --force', 'Overwrite existing components without confirmation')
-  .option('--include-tests', 'Include test files in download')
-  .option('--include-stories', 'Include Storybook files in download')
+  .option('--no-tests', 'Exclude test files from download (tests included by default)')
+  .option('--include-stories', 'Include Storybook files in download (excluded by default)')
   .option('--install-deps', 'Install component dependencies after download')
   .option('--package-manager <manager>', 'Package manager to use for dependencies (npm, pnpm, yarn)', 'pnpm')
   .action(async (name, options) => {
