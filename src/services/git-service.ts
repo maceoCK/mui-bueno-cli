@@ -177,6 +177,27 @@ export class GitService {
       await this.checkoutVersion(repoPath, version);
     }
 
+    const targetDir = outputDir || './components';
+    const downloadedComponents = new Set<string>();
+    
+    // Download the main component and all its dependencies
+    await this.downloadComponentWithDependencies(name, repoPath, targetDir, downloadedComponents);
+
+    const componentBaseName = path.basename(name);
+    return path.join(targetDir, componentBaseName);
+  }
+
+  private async downloadComponentWithDependencies(
+    name: string, 
+    repoPath: string, 
+    targetDir: string, 
+    downloadedComponents: Set<string>
+  ): Promise<void> {
+    // Skip if already downloaded
+    if (downloadedComponents.has(name)) {
+      return;
+    }
+
     // Find the component among all available components (including nested ones)
     const componentsPath = path.join(repoPath, 'src', 'components');
     const allComponents = await this.findAllComponents(componentsPath);
@@ -206,16 +227,165 @@ export class GitService {
       throw new Error(errorMessage);
     }
 
+    console.log(`📦 Downloading ${name}...`);
+
+    // Find dependencies before downloading
+    const dependencies = await this.findComponentDependencies(component.path, componentsPath, allComponents);
+    
+    if (dependencies.length > 0) {
+      console.log(`   📁 Found ${dependencies.length} dependenc${dependencies.length === 1 ? 'y' : 'ies'}: ${dependencies.join(', ')}`);
+      
+      // Download dependencies first
+      for (const dep of dependencies) {
+        await this.downloadComponentWithDependencies(dep, repoPath, targetDir, downloadedComponents);
+      }
+    }
+
     // Copy component to output directory
-    const targetDir = outputDir || './components';
-    // Use only the component name (without path) for the target directory
     const componentBaseName = path.basename(component.name);
     const targetPath = path.join(targetDir, componentBaseName);
     
     await fs.ensureDir(targetDir);
     await fs.copy(component.path, targetPath);
+    
+    // Mark as downloaded
+    downloadedComponents.add(name);
+    
+    console.log(`   ✅ ${name} downloaded to ${componentBaseName}/`);
+  }
 
-    return targetPath;
+  private async findComponentDependencies(
+    componentPath: string, 
+    componentsBasePath: string,
+    allComponents: Array<{name: string, path: string}>
+  ): Promise<string[]> {
+    const dependencies: string[] = [];
+    
+    try {
+      // Get all TypeScript/JavaScript files in the component directory
+      const files = await fs.readdir(componentPath);
+      const codeFiles = files.filter(file => 
+        (file.endsWith('.tsx') || file.endsWith('.ts') || file.endsWith('.jsx') || file.endsWith('.js')) &&
+        !file.includes('.stories.') && 
+        !file.includes('.test.') &&
+        !file.includes('.spec.')
+      );
+
+      for (const file of codeFiles) {
+        const filePath = path.join(componentPath, file);
+        const content = await fs.readFile(filePath, 'utf-8');
+        
+        // Find local imports (relative imports starting with ./ or ../)
+        const localImports = this.extractLocalImports(content);
+        
+        for (const importPath of localImports) {
+          const resolvedDep = this.resolveComponentDependency(
+            importPath, 
+            componentPath, 
+            componentsBasePath, 
+            allComponents
+          );
+          
+          if (resolvedDep && !dependencies.includes(resolvedDep)) {
+            dependencies.push(resolvedDep);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Warning: Could not analyze dependencies for ${componentPath}: ${error}`);
+    }
+
+    return dependencies;
+  }
+
+  private extractLocalImports(content: string): string[] {
+    const imports: string[] = [];
+    
+    // Match import statements with relative paths - improved regex
+    const importRegex = /import\s+(?:[^'"`\n]*\s+from\s+)?['"`](\.[^'"`]+)['"`]/g;
+    let match;
+    
+    while ((match = importRegex.exec(content)) !== null) {
+      imports.push(match[1]);
+    }
+
+    // Also match dynamic imports
+    const dynamicImportRegex = /import\s*\(\s*['"`](\.[^'"`]+)['"`]\s*\)/g;
+    while ((match = dynamicImportRegex.exec(content)) !== null) {
+      imports.push(match[1]);
+    }
+
+    return imports;
+  }
+
+  private resolveComponentDependency(
+    importPath: string,
+    currentComponentPath: string,
+    componentsBasePath: string,
+    allComponents: Array<{name: string, path: string}>
+  ): string | null {
+    try {
+      // Handle both file and directory imports
+      let resolvedPath = path.resolve(currentComponentPath, importPath);
+      
+      // If the import doesn't have an extension, try common extensions
+      if (!path.extname(importPath)) {
+        const potentialPaths = [
+          resolvedPath + '.tsx',
+          resolvedPath + '.ts',
+          path.join(resolvedPath, 'index.tsx'),
+          path.join(resolvedPath, 'index.ts')
+        ];
+        
+        // Use the first path that could exist (we don't check filesystem here)
+        resolvedPath = potentialPaths[0];
+      }
+      
+      // Check if the resolved path is within the components directory
+      if (!resolvedPath.startsWith(componentsBasePath)) {
+        return null; // External dependency, not a component
+      }
+
+      // Find which component this path belongs to by checking all components
+      for (const component of allComponents) {
+        // Check if the resolved path is within this component's directory
+        if (resolvedPath.startsWith(component.path)) {
+          // Make sure it's not the same component
+          if (component.path !== currentComponentPath) {
+            return component.name;
+          }
+        }
+      }
+
+      // Try to find by directory structure if direct match fails
+      // Work backwards from the resolved path to find a matching component
+      const relativePath = path.relative(componentsBasePath, resolvedPath);
+      const pathParts = relativePath.split(path.sep);
+      
+      // Remove the file name and extension to get directory path
+      let dirParts = pathParts.slice();
+      if (path.extname(pathParts[pathParts.length - 1])) {
+        dirParts = dirParts.slice(0, -1);
+      }
+      
+      // Build potential component names from path parts
+      for (let i = dirParts.length; i > 0; i--) {
+        const potentialName = dirParts.slice(0, i).join('/');
+        const foundComponent = allComponents.find(comp => comp.name === potentialName);
+        if (foundComponent) {
+          // Make sure it's not the same component we're currently processing
+          const currentComponentName = path.relative(componentsBasePath, currentComponentPath).replace(/\\/g, '/');
+          if (foundComponent.name !== currentComponentName) {
+            return foundComponent.name;
+          }
+        }
+      }
+
+    } catch (error) {
+      // Path resolution failed, skip this dependency
+    }
+
+    return null;
   }
 
   private async findAllComponents(basePath: string, relativePath: string = ''): Promise<Array<{name: string, path: string}>> {

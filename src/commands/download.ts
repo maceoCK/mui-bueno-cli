@@ -175,20 +175,20 @@ export async function downloadCommand(componentName?: string, options: DownloadO
     }
 
     // Download component
-    const downloadSpinner = ora(`Downloading ${targetComponent}${targetVersion ? `@${targetVersion}` : ''}...`).start();
+    const downloadSpinner = ora(`Analyzing and downloading ${targetComponent}${targetVersion ? `@${targetVersion}` : ''}...`).start();
     
     try {
+      downloadSpinner.stop();
+      console.log(chalk.blue(`\n📦 Downloading ${targetComponent}${targetVersion ? `@${targetVersion}` : ''} and dependencies...\n`));
+      
       const extractedPath = await gitService.downloadComponent(
         targetComponent, 
         targetVersion, 
         outputDir
       );
 
-      downloadSpinner.succeed(
-        `${chalk.green('✓')} ${targetComponent}${targetVersion ? `@${targetVersion}` : ''} downloaded successfully`
-      );
-
-      console.log(chalk.dim(`  Location: ${extractedPath}`));
+      console.log(chalk.green(`\n✅ ${targetComponent}${targetVersion ? `@${targetVersion}` : ''} and all dependencies downloaded successfully!`));
+      console.log(chalk.dim(`   Main component location: ${extractedPath}`));
 
       // Post-download processing
       if (!options.includeTests) {
