@@ -162,4 +162,4 @@ MIT
 
 ## 🐛 Issues
 
-Report issues at: [GitHub Issues](https://github.com/your-username/mui-bueno-cli/issues) 
+Report issues at: [GitHub Issues](https://github.com/maceoCK/mui-bueno-cli/issues) 

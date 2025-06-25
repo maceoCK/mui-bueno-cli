@@ -20,7 +20,7 @@ export class GitService {
   async testConnection(): Promise<boolean> {
     try {
       // Test SSH access to the repository
-      const { stdout, stderr } = await execAsync(`ssh -T git@github.com`, {
+      const { stdout, stderr } = await execAsync(`ssh -T git@bitbucket.org`, {
         env: { ...process.env, GIT_SSH_COMMAND: this.getSSHCommand() }
       });
       

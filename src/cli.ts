@@ -137,7 +137,7 @@ async function listCommand(options: { branch?: string; limit: string }) {
   
   if (!isConnected) {
     console.error(chalk.red('Cannot access git repository. Please ensure you have SSH access.'));
-    console.error(chalk.red('Run "ssh -T git@github.com" to test your SSH connection.'));
+    console.error(chalk.red('Run "ssh -T git@bitbucket.org" to test your SSH connection.'));
     return;
   }
 
@@ -330,7 +330,7 @@ async function initCommand(options: { installDeps?: boolean; packageManager?: st
   } else {
     console.log(chalk.red('❌ SSH connection failed.'));
     console.log(chalk.yellow('Please ensure you have SSH access to the repository.'));
-    console.log(chalk.yellow('Run "ssh -T git@github.com" to test your SSH connection.'));
+    console.log(chalk.yellow('Run "ssh -T git@bitbucket.org" to test your SSH connection.'));
     console.log(chalk.yellow('Make sure your SSH key is added to your GitHub account.'));
   }
 

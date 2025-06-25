@@ -35,7 +35,7 @@ export async function downloadCommand(componentName?: string, options: DownloadO
     if (!isConnected) {
       spinner.fail('Failed to connect to git repository');
       console.error(chalk.red('Please ensure you have SSH access to the repository and try again.'));
-      console.error(chalk.red('Run "ssh -T git@github.com" to test your SSH connection.'));
+      console.error(chalk.red('Run "ssh -T git@bitbucket.org" to test your SSH connection.'));
       return;
     }
 
