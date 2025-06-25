@@ -151,32 +151,19 @@ export class GitService {
     }
 
     const componentInfos: ComponentInfo[] = [];
-    const items = await fs.readdir(componentsPath);
+    const components = await this.findAllComponents(componentsPath);
 
-    for (const item of items) {
-      const itemPath = path.join(componentsPath, item);
-      const stat = await fs.stat(itemPath);
+    for (const component of components) {
+      const branches = await this.getComponentBranches(component.name);
+      const tags = await this.getComponentTags(component.name);
       
-      if (stat.isDirectory() && !item.startsWith('.')) {
-        // Check if this is a component directory (has .tsx files)
-        const files = await fs.readdir(itemPath);
-        const hasComponentFile = files.some(file => 
-          file.endsWith('.tsx') && !file.includes('.stories.') && !file.includes('.test.')
-        );
-
-        if (hasComponentFile) {
-          const branches = await this.getComponentBranches(item);
-          const tags = await this.getComponentTags(item);
-          
-          componentInfos.push({
-            name: item,
-            path: itemPath,
-            branches,
-            tags,
-            versions: [...branches, ...tags]
-          });
-        }
-      }
+      componentInfos.push({
+        name: component.name,
+        path: component.path,
+        branches,
+        tags,
+        versions: [...branches, ...tags]
+      });
     }
 
     return componentInfos.sort((a, b) => a.name.localeCompare(b.name));
@@ -190,12 +177,14 @@ export class GitService {
       await this.checkoutVersion(repoPath, version);
     }
 
-    const componentPath = path.join(repoPath, 'src', 'components', name);
+    // Find the component among all available components (including nested ones)
+    const componentsPath = path.join(repoPath, 'src', 'components');
+    const allComponents = await this.findAllComponents(componentsPath);
+    const component = allComponents.find(comp => comp.name === name);
     
-    if (!await fs.pathExists(componentPath)) {
+    if (!component) {
       // Try to find similar component names for better error messaging
-      const componentsPath = path.join(repoPath, 'src', 'components');
-      const availableComponents = await this.getAvailableComponentNames(componentsPath);
+      const availableComponents = allComponents.map(comp => comp.name);
       
       // Look for case-insensitive matches or partial matches
       const similarComponents = availableComponents.filter(comp => 
@@ -219,40 +208,60 @@ export class GitService {
 
     // Copy component to output directory
     const targetDir = outputDir || './components';
-    const targetPath = path.join(targetDir, name);
+    // Use only the component name (without path) for the target directory
+    const componentBaseName = path.basename(component.name);
+    const targetPath = path.join(targetDir, componentBaseName);
     
     await fs.ensureDir(targetDir);
-    await fs.copy(componentPath, targetPath);
+    await fs.copy(component.path, targetPath);
 
     return targetPath;
   }
 
-  private async getAvailableComponentNames(componentsPath: string): Promise<string[]> {
-    if (!await fs.pathExists(componentsPath)) {
+  private async findAllComponents(basePath: string, relativePath: string = ''): Promise<Array<{name: string, path: string}>> {
+    if (!await fs.pathExists(basePath)) {
       return [];
     }
 
-    const items = await fs.readdir(componentsPath);
-    const componentNames: string[] = [];
+    const components: Array<{name: string, path: string}> = [];
+    const items = await fs.readdir(basePath);
 
     for (const item of items) {
-      const itemPath = path.join(componentsPath, item);
+      if (item.startsWith('.') || item === 'README.md') {
+        continue;
+      }
+
+      const itemPath = path.join(basePath, item);
       const stat = await fs.stat(itemPath);
       
-      if (stat.isDirectory() && !item.startsWith('.')) {
-        // Check if this is a component directory (has .tsx files)
+      if (stat.isDirectory()) {
+        // Check if this directory contains component files
         const files = await fs.readdir(itemPath);
         const hasComponentFile = files.some(file => 
           file.endsWith('.tsx') && !file.includes('.stories.') && !file.includes('.test.')
         );
 
+        const componentName = relativePath ? `${relativePath}/${item}` : item;
+
         if (hasComponentFile) {
-          componentNames.push(item);
+          components.push({
+            name: componentName,
+            path: itemPath
+          });
         }
+
+        // Recursively search subdirectories
+        const subComponents = await this.findAllComponents(itemPath, componentName);
+        components.push(...subComponents);
       }
     }
 
-    return componentNames.sort();
+    return components;
+  }
+
+  private async getAvailableComponentNames(componentsPath: string): Promise<string[]> {
+    const components = await this.findAllComponents(componentsPath);
+    return components.map(comp => comp.name).sort();
   }
 
   private async checkoutBranch(repoPath: string, branch: string): Promise<void> {
