@@ -295,9 +295,7 @@ export class GitService {
       const files = await fs.readdir(componentPath);
       const codeFiles = files.filter(file => 
         (file.endsWith('.tsx') || file.endsWith('.ts') || file.endsWith('.jsx') || file.endsWith('.js')) &&
-        !file.includes('.stories.') && 
-        !file.includes('.test.') &&
-        !file.includes('.spec.')
+        !file.includes('.stories.')
       );
 
       for (const file of codeFiles) {
@@ -451,9 +449,7 @@ export class GitService {
       // Filter out stories, tests, and spec files
       const codeFiles = allFiles.filter(filePath => {
         const fileName = path.basename(filePath);
-        return !fileName.includes('.stories.') && 
-               !fileName.includes('.test.') &&
-               !fileName.includes('.spec.');
+        return !fileName.includes('.stories.');
       });
 
       for (const filePath of codeFiles) {
