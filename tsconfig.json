@@ -13,8 +13,13 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "types": ["node"],
-    "noImplicitAny": false
+    "types": ["node", "jest"],
+    "typeRoots": ["./node_modules/@types"],
+    "paths": {
+      "*": ["./node_modules/*"]
+    },
+    "noImplicitAny": false,
+    "baseUrl": "./"
   },
   "include": [
     "src/**/*"

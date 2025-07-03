@@ -7,6 +7,8 @@ import * as os from 'os';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import { GitConfig, GitInfo, ComponentInfo, Component } from '../types/index.js';
+import type { ChildProcess, SpawnOptions, ExecOptions } from 'child_process';
+import type { PathLike } from 'fs';
 
 const execAsync = promisify(exec);
 
