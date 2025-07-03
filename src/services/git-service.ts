@@ -5,9 +5,7 @@ import * as os from 'os';
 import type { PathLike } from 'fs';
 import chalk from 'chalk';
 import { GitConfig, GitInfo, ComponentInfo, Component } from '../types/index.js';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const childProcess = require('child_process');
+import * as childProcess from 'child_process';
 const { spawn } = childProcess;
 const execAsync = util.promisify(childProcess.exec);
 
