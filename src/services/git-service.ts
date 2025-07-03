@@ -1,4 +1,5 @@
 import { spawn, exec } from 'child_process';
+import type { ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs-extra';
 import path from 'path';
