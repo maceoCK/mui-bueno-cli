@@ -4,7 +4,7 @@ import { spawn, exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import * as os from 'os';
-import fs from 'fs-extra';
+import * as fs from 'fs-extra';
 import chalk from 'chalk';
 import { GitConfig, GitInfo, ComponentInfo, Component } from '../types/index.js';
 import type { SpawnOptions, ExecOptions } from 'child_process';
