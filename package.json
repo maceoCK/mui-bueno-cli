@@ -3,6 +3,7 @@
   "version": "1.3.0",
   "description": "CLI tool for managing MUI Bueno components from git repository",
   "main": "dist/cli.js",
+  "type": "module",
   "bin": {
     "mui-bueno": "dist/cli.js"
   },

@@ -1,11 +1,12 @@
-import * as util from 'util';
+import * as childProcess from 'node:child_process';
+import type { ChildProcess, SpawnOptions } from 'node:child_process';
+import * as util from 'node:util';
 import fs from 'fs-extra';
-import * as path from 'path';
-import * as os from 'os';
-import type { PathLike } from 'fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import type { PathLike } from 'node:fs';
 import chalk from 'chalk';
 import { GitConfig, GitInfo, ComponentInfo, Component } from '../types/index.js';
-import * as childProcess from 'child_process';
 const { spawn } = childProcess;
 const execAsync = util.promisify(childProcess.exec);
 
