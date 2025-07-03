@@ -57,7 +57,7 @@ export class GitService {
         stdio: 'pipe'
       });
 
-      clone.on('close', (code) => {
+      clone.on('close', (code: number | null) => {
         if (code === 0) {
           resolve();
         } else {
@@ -77,7 +77,7 @@ export class GitService {
         stdio: 'pipe'
       });
 
-      fetch.on('close', (code) => {
+      fetch.on('close', (code: number | null) => {
         if (code === 0) {
           resolve();
         } else {
@@ -96,8 +96,8 @@ export class GitService {
       const { stdout } = await execAsync('git branch -r', { cwd: repoPath });
       return stdout
         .split('\n')
-        .map(branch => branch.trim().replace('origin/', ''))
-        .filter(branch => branch && !branch.includes('HEAD'))
+        .map((branch: string) => branch.trim().replace('origin/', ''))
+        .filter((branch: string) => branch && !branch.includes('HEAD'))
         .sort();
     } catch (error) {
       return [];
@@ -109,7 +109,7 @@ export class GitService {
     
     try {
       const { stdout } = await execAsync('git tag --sort=-version:refname', { cwd: repoPath });
-      return stdout.split('\n').filter(tag => tag.trim()).slice(0, 10); // Latest 10 tags
+      return stdout.split('\n').filter((tag: string) => tag.trim()).slice(0, 10); // Latest 10 tags
     } catch (error) {
       return [];
     }
@@ -1029,7 +1029,7 @@ export class GitService {
         stdio: 'pipe'
       });
 
-      checkout.on('close', (code) => {
+      checkout.on('close', (code: number | null) => {
         if (code === 0) {
           resolve();
         } else {
@@ -1048,7 +1048,7 @@ export class GitService {
         stdio: 'pipe'
       });
 
-      checkout.on('close', (code) => {
+      checkout.on('close', (code: number | null) => {
         if (code === 0) {
           resolve();
         } else {
