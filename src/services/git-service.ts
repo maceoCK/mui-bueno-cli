@@ -17,26 +17,53 @@ export class GitService {
     this.cacheDir = cacheDir || path.join(os.homedir(), '.mui-bueno-cache');
   }
 
+  private getGitHost(): string {
+    // Extract host from URL: git@host:org/repo.git or https://host/org/repo.git
+    const match = this.config.repositoryUrl.match(/(?:@|\/\/)([^:/]+)/);
+    if (!match) {
+      throw new Error('Invalid repository URL format');
+    }
+    return match[1];
+  }
+
   async testConnection(): Promise<boolean> {
     try {
+      const gitHost = this.getGitHost();
       // Test SSH access to the repository
-      const { stdout, stderr } = await execAsync(`ssh -T git@bitbucket.org`, {
+      const { stdout, stderr } = await execAsync(`ssh -T git@${gitHost}`, {
         env: { ...process.env, GIT_SSH_COMMAND: this.getSSHCommand() }
       });
       
-      // GitHub SSH test returns specific messages
-      return stderr.includes('authenticated via ssh key.') || stdout.includes('authenticated via ssh key.');
+      // GitHub/BitBucket SSH test returns specific messages
+      return stderr.includes('authenticated via ssh key.') || 
+             stdout.includes('authenticated via ssh key.') ||
+             stderr.includes('successfully authenticated') ||
+             stdout.includes('successfully authenticated');
     } catch (error: any) {
       // GitHub SSH test typically "fails" with exit code 1 but gives success message
-      if (error.stderr && error.stderr.includes('authenticated via ssh key.')) {
+      if (error.stderr && (
+          error.stderr.includes('authenticated via ssh key.') ||
+          error.stderr.includes('successfully authenticated')
+      )) {
         return true;
       }
       return false;
     }
   }
 
+  private getRepoCacheDir(): string {
+    // Extract repo name from URL: git@host:org/repo.git or https://host/org/repo.git
+    const match = this.config.repositoryUrl.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
+    if (!match) {
+      throw new Error('Invalid repository URL format');
+    }
+    // Replace / with - to make a valid directory name
+    const repoFullName = match[1].replace('/', '-');
+    return path.join(this.cacheDir, repoFullName);
+  }
+
   async ensureRepositoryCache(): Promise<string> {
-    const repoPath = path.join(this.cacheDir, 'mui-bueno-v2');
+    const repoPath = this.getRepoCacheDir();
     
     if (await fs.pathExists(repoPath)) {
       // Update existing repository
