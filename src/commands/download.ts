@@ -4,8 +4,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import { ConfigManager } from '../utils/config.js';
-import { GitService } from '../services/git-service.js';
-import { DownloadOptions, Component } from '../types/index.js';
+import { GitService } from '../services/git/git-service.js';
+import { DownloadOptions } from '../types/index.js';
 
 export async function downloadCommand(componentName?: string, options: DownloadOptions = {}): Promise<void> {
   const spinner = ora('Initializing download...').start();
@@ -38,10 +38,6 @@ export async function downloadCommand(componentName?: string, options: DownloadO
       console.error(chalk.red('Run "ssh -T git@bitbucket.org" to test your SSH connection.'));
       return;
     }
-
-    // Ensure repository cache is up to date
-    spinner.text = 'Updating repository cache...';
-    await gitService.ensureRepositoryCache();
 
     let targetComponent = componentName;
     let targetVersion = options.version || options.branch || options.commit;
@@ -131,8 +127,8 @@ export async function downloadCommand(componentName?: string, options: DownloadO
       spinner.stop();
 
       const versionChoices = [
-        ...gitInfo.availableTags.map(tag => ({ name: `${tag} (tag)`, value: tag })),
-        ...gitInfo.availableBranches.map(branch => ({ name: `${branch} (branch)`, value: branch }))
+        ...gitInfo.availableTags.map((tag: string) => ({ name: `${tag} (tag)`, value: tag })),
+        ...gitInfo.availableBranches.map((branch: string) => ({ name: `${branch} (branch)`, value: branch }))
       ];
 
       if (versionChoices.length > 0) {
