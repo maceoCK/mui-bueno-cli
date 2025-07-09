@@ -322,9 +322,7 @@ export class GitService {
       const files = await fs.readdir(componentPath);
       const codeFiles = files.filter(file => 
         (file.endsWith('.tsx') || file.endsWith('.ts') || file.endsWith('.jsx') || file.endsWith('.js')) &&
-        !file.includes('.stories.') && 
-        !file.includes('.test.') &&
-        !file.includes('.spec.')
+        !file.includes('.stories.') // Only exclude story files, include test files
       );
 
       for (const file of codeFiles) {
@@ -362,7 +360,7 @@ export class GitService {
     } catch (error) {
       console.warn(`Warning: Could not analyze dependencies for ${componentPath}: ${error}`);
     }
-
+    
     return { components, sharedFiles };
   }
 
@@ -475,12 +473,10 @@ export class GitService {
       // Get all TypeScript/JavaScript files in the component directory recursively
       const allFiles = await this.findAllFilesRecursive(componentPath, ['.tsx', '.ts', '.jsx', '.js']);
       
-      // Filter out stories, tests, and spec files
+      // Filter out only story files, include test files
       const codeFiles = allFiles.filter(filePath => {
         const fileName = path.basename(filePath);
-        return !fileName.includes('.stories.') && 
-               !fileName.includes('.test.') &&
-               !fileName.includes('.spec.');
+        return !fileName.includes('.stories.');
       });
 
       for (const filePath of codeFiles) {
@@ -492,7 +488,7 @@ export class GitService {
         for (const importPath of localImports) {
           const newImportPath = this.calculateNewImportPath(
             importPath, 
-            filePath, // Pass the actual file path instead of component path
+            filePath,
             targetDir, 
             dependencies,
             srcPath
@@ -657,16 +653,17 @@ export class GitService {
 
       // Find all TypeScript/JavaScript files in shared directory
       const files = await this.findAllFilesRecursive(sharedDir, ['.tsx', '.ts', '.jsx', '.js']);
+      const filteredFiles = files.filter(file => !path.basename(file).includes('.stories.')); // Only exclude story files
       
-      for (const filePath of files) {
+      for (const filePath of filteredFiles) {
         let content = await fs.readFile(filePath, 'utf-8');
         const localImports = this.extractLocalImports(content);
         
         for (const importPath of localImports) {
           const newImportPath = this.calculateSharedFileImportPath(
-            importPath, 
-            filePath, 
-            targetDir, 
+            importPath,
+            filePath,
+            targetDir,
             srcPath,
             allComponents
           );
@@ -782,12 +779,13 @@ export class GitService {
 
       console.log(`🔍 Analyzing shared files for additional dependencies...`);
 
-      // Find all TypeScript/JavaScript files in shared directory
+      // Find all TypeScript/JavaScript files in shared directory, including test files
       const files = await this.findAllFilesRecursive(sharedDir, ['.tsx', '.ts', '.jsx', '.js']);
+      const filteredFiles = files.filter(file => !path.basename(file).includes('.stories.')); // Only exclude story files
       
       const foundDependencies: string[] = [];
       
-      for (const filePath of files) {
+      for (const filePath of filteredFiles) {
         const content = await fs.readFile(filePath, 'utf-8');
         const localImports = this.extractLocalImports(content);
         
