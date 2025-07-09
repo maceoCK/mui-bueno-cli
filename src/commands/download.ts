@@ -208,79 +208,61 @@ export async function downloadCommand(componentName?: string, options: DownloadO
     } catch (error) {
       downloadSpinner.fail(`Failed to download ${targetComponent}`);
       
-      // Check if this is a "component not found" error with suggestions
+      // Intelligent suggestion when component not found
       const errorMessage = String(error);
-      if (errorMessage.includes('Component "') && errorMessage.includes('Did you mean one of these?')) {
-        // Extract the component name and suggestions
+      if (errorMessage.includes('Component') && errorMessage.includes('not found')) {
         const componentMatch = errorMessage.match(/Component "([^"]+)" not found/);
-        const suggestionsMatch = errorMessage.match(/Did you mean one of these\?\n  (.+)/);
-        
-        if (componentMatch && suggestionsMatch) {
-          const searchedComponent = componentMatch[1];
-          const suggestions = suggestionsMatch[1].split('\n  ');
-          
-          console.error(chalk.red(`Component "${searchedComponent}" not found.`));
-          
-          if (suggestions.length === 1) {
-            // Single suggestion - simple yes/no prompt
-            const suggestion = suggestions[0];
-            console.log(chalk.yellow(`\nDid you mean: ${chalk.bold(suggestion)}?`));
-            
-            const { useSuggestion } = await inquirer.prompt([
-              {
-                type: 'confirm',
-                name: 'useSuggestion',
-                message: `Download "${suggestion}" instead?`,
-                default: true
-              }
-            ]);
-            
-            if (useSuggestion) {
-              console.log(chalk.blue(`\n📦 Downloading ${suggestion}${targetVersion ? `@${targetVersion}` : ''} and dependencies...\n`));
-              
-              try {
-                const extractedPath = await gitService.downloadComponent(
-                  suggestion, 
-                  targetVersion, 
-                  outputDir
-                );
+        const searchedComponent = componentMatch ? componentMatch[1] : targetComponent;
 
-                console.log(chalk.green(`\n✅ ${suggestion}${targetVersion ? `@${targetVersion}` : ''} and all dependencies downloaded successfully!`));
-                console.log(chalk.dim(`   Main component location: ${extractedPath}`));
+        console.error(chalk.red(`Component "${searchedComponent}" not found.`));
 
-                // Post-download processing
-                if (options.tests === false) {
-                  await removeTestFiles(outputDir);
-                }
+        // Fetch available components to generate suggestions
+        const allComponents = await gitService.listComponents(options.branch);
+        const componentNames = allComponents.map(c => c.name);
 
-                if (!options.includeStories) {
-                  await removeStoryFiles(outputDir);
-                }
+        const suggestions = getComponentSuggestions(componentNames, searchedComponent);
 
-                // Show component info
-                await showComponentInfo(extractedPath, targetVersion);
+        if (suggestions.length === 0) {
+          console.log(chalk.yellow('No similar components found.'));
+          return;
+        }
 
-                // Install dependencies if requested
-                if (options.installDeps) {
-                  await installComponentDependencies(extractedPath, options.packageManager || 'pnpm');
-                }
-                
-                return; // Success, exit the function
-              } catch (secondError) {
-                console.error(chalk.red(`Failed to download ${suggestion}: ${secondError}`));
-              }
-            } else {
-              console.log(chalk.yellow('Download cancelled.'));
+        // If only one suggestion, confirm prompt; otherwise list
+        if (suggestions.length === 1) {
+          const suggestion = suggestions[0];
+          console.log(chalk.yellow(`\nDid you mean: ${chalk.bold(suggestion)}?`));
+
+          const { useSuggestion } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'useSuggestion',
+              message: `Download "${suggestion}" instead?`,
+              default: true
             }
-          } else {
-            // Multiple suggestions - show list as before
-            console.log(chalk.yellow(`\nDid you mean one of these?`));
-            suggestions.forEach((suggestion, index) => {
-              console.log(`  ${chalk.dim(`${index + 1}.`)} ${suggestion}`);
-            });
+          ]);
+
+          if (!useSuggestion) {
+            console.log(chalk.yellow('Download cancelled.'));
+            return;
           }
+
+          await downloadSuggested(suggestion, gitService, targetVersion, outputDir, options);
         } else {
-          console.error(chalk.red(`Error: ${error}`));
+          const { selectedSuggestion } = await inquirer.prompt([
+            {
+              type: 'list',
+              name: 'selectedSuggestion',
+              message: 'Did you mean one of these?',
+              choices: suggestions,
+              pageSize: 15
+            }
+          ]);
+
+          if (selectedSuggestion) {
+            await downloadSuggested(selectedSuggestion, gitService, targetVersion, outputDir, options);
+          } else {
+            console.log(chalk.yellow('Download cancelled.'));
+          }
         }
       } else {
         console.error(chalk.red(`Error: ${error}`));
@@ -545,4 +527,83 @@ async function installDependencies(
       reject(error);
     });
   });
+} 
+
+// Helper functions placed outside of downloadCommand
+
+async function downloadSuggested(
+  suggestion: string,
+  gitService: GitService,
+  targetVersion: string | undefined,
+  outputDir: string,
+  options: DownloadOptions
+): Promise<void> {
+  console.log(chalk.blue(`\n📦 Downloading ${suggestion}${targetVersion ? `@${targetVersion}` : ''} and dependencies...\n`));
+
+  try {
+    const extractedPath = await gitService.downloadComponent(
+      suggestion,
+      targetVersion,
+      outputDir
+    );
+
+    console.log(chalk.green(`\n✅ ${suggestion}${targetVersion ? `@${targetVersion}` : ''} and all dependencies downloaded successfully!`));
+    console.log(chalk.dim(`   Main component location: ${extractedPath}`));
+
+    if (options.tests === false) {
+      await removeTestFiles(outputDir);
+    }
+
+    if (!options.includeStories) {
+      await removeStoryFiles(outputDir);
+    }
+
+    await showComponentInfo(extractedPath, targetVersion);
+
+    if (options.installDeps) {
+      await installComponentDependencies(extractedPath, options.packageManager || 'pnpm');
+    }
+
+  } catch (err) {
+    console.error(chalk.red(`Failed to download ${suggestion}: ${err}`));
+  }
+}
+
+/** Generate component suggestions given available names */
+function getComponentSuggestions(names: string[], query: string): string[] {
+  const lowerQuery = query.toLowerCase();
+  // First pass: substring matches
+  const substringMatches = names.filter(n => n.toLowerCase().includes(lowerQuery));
+  if (substringMatches.length > 0) {
+    return substringMatches.slice(0, 10);
+  }
+
+  // Fallback: Levenshtein distance ranking
+  const ranked = names
+    .map(n => ({ name: n, dist: levenshtein(n.toLowerCase(), lowerQuery) }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 10)
+    .map(r => r.name);
+
+  return ranked;
+}
+
+// Simple Levenshtein distance implementation
+function levenshtein(a: string, b: string): number {
+  const matrix: number[][] = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1, // deletion
+        matrix[i][j - 1] + 1, // insertion
+        matrix[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+  return matrix[a.length][b.length];
 } 
